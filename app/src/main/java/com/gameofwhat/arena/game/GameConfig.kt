@@ -40,6 +40,15 @@ object GameConfig {
     const val SPEED_BUFF_MULT = 1.5f
     const val RAPIDFIRE_BUFF_MULT = 0.5f    // multiplies fire interval (lower = faster)
 
+    // Active abilities
+    const val SHIELD_DURATION = 4f          // paladin invulnerability
+    const val PRIEST_HEAL_AMOUNT = 70       // priest circle heal
+    const val WHIRLWIND_RADIUS = 195f       // warrior AoE
+    const val WHIRLWIND_MULT = 2.2f
+    const val NOVA_RADIUS = 235f            // warlock AoE
+    const val NOVA_MULT = 2.0f
+    const val VOLLEY_ARROWS = 12            // hunter radial volley
+
     // Networking cadence
     const val PLAYER_SYNC_HZ = 15f
     const val ENEMY_SYNC_HZ = 12f

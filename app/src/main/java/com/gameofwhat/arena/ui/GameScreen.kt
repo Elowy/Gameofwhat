@@ -3,6 +3,7 @@ package com.gameofwhat.arena.ui
 import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
@@ -19,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -40,6 +44,8 @@ import com.gameofwhat.arena.ui.theme.Background
 import com.gameofwhat.arena.ui.theme.Danger
 import com.gameofwhat.arena.ui.theme.PlayerColors
 import com.gameofwhat.arena.ui.theme.Primary
+import com.gameofwhat.arena.ui.theme.Secondary
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -115,10 +121,51 @@ fun GameScreen(vm: AppViewModel, engine: GameEngine) {
                     .padding(28.dp),
                 onMove = engine::setMoveInput,
             )
+            AbilityButton(
+                rs = rs,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(28.dp),
+                onClick = engine::activateAbility,
+            )
         }
 
         if (rs.phase == Phase.GAMEOVER) {
             GameOverOverlay(rs) { vm.backToMenu() }
+        }
+    }
+}
+
+@Composable
+private fun AbilityButton(rs: RenderState, modifier: Modifier, onClick: () -> Unit) {
+    val ready = rs.abilityReady
+    val frac = if (rs.abilityCdTotal > 0f)
+        (rs.abilityCdRemaining / rs.abilityCdTotal).coerceIn(0f, 1f) else 0f
+    Box(
+        modifier = modifier
+            .size(92.dp)
+            .clip(CircleShape)
+            .background(if (ready) Secondary else Color(0xFF2A2E45))
+            .clickable(enabled = ready) { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (!ready) {
+            Canvas(Modifier.fillMaxSize()) {
+                drawArc(
+                    color = Color.Black.copy(alpha = 0.5f),
+                    startAngle = -90f,
+                    sweepAngle = 360f * frac,
+                    useCenter = true,
+                )
+            }
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(rs.abilityName, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(
+                if (ready) "KÉSZ" else "${ceil(rs.abilityCdRemaining).toInt()}s",
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 11.sp,
+            )
         }
     }
 }
@@ -286,7 +333,7 @@ private fun DrawScope.drawArena(
         val a = (s.life / s.max).coerceIn(0f, 1f)
         drawCircle(
             color = Color(0xFFFFE082).copy(alpha = a),
-            radius = (1f - a) * 26f * scale + 4f,
+            radius = (1f - a) * s.r * scale + 4f,
             center = Offset(sx(s.x), sy(s.y)),
             style = Stroke(width = 3f),
         )
@@ -353,6 +400,11 @@ private fun DrawScope.drawArena(
         // Local player highlight ring.
         if (p.id == rs.localId) {
             drawCircle(Color.White, radius = r + 4f, center = center, style = Stroke(width = 3f))
+            // Paladin shield bubble.
+            if (rs.localShield) {
+                drawCircle(Color(0xFF4FC3F7).copy(alpha = 0.85f), radius = r + 12f, center = center, style = Stroke(width = 4f))
+                drawCircle(Color(0xFF4FC3F7).copy(alpha = 0.12f), radius = r + 12f, center = center)
+            }
         }
         // Drawn bow / aim direction.
         if (p.alive) {

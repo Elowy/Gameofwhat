@@ -16,6 +16,8 @@ data class ClassDef(
     val healAuraRadius: Float = 0f,    // priest: heals allies in radius
     val healAuraPerSec: Float = 0f,
     val selfRegenPerSec: Float = 0f,   // paladin
+    val abilityName: String,           // active ability, triggered by the player
+    val abilityCooldown: Float,        // seconds
     val color: Long,
 )
 
@@ -24,28 +26,33 @@ object Classes {
         ClassDef(
             id = 0, name = "Vadász", blurb = "Gyors, távolsági íjász",
             maxHp = 90, fireInterval = 0.22f, range = 470f, damage = 20,
-            bulletSpeed = 780f, moveSpeed = 245f, color = 0xFF66BB6A,
+            bulletSpeed = 780f, moveSpeed = 245f,
+            abilityName = "Nyílzápor", abilityCooldown = 9f, color = 0xFF66BB6A,
         ),
         ClassDef(
             id = 1, name = "Harcos", blurb = "Közelharc, sok életerő, suhintás",
             maxHp = 170, fireInterval = 0.45f, range = 110f, damage = 42,
-            bulletSpeed = 0f, moveSpeed = 235f, melee = true, color = 0xFFEF5350,
+            bulletSpeed = 0f, moveSpeed = 235f, melee = true,
+            abilityName = "Forgószél", abilityCooldown = 10f, color = 0xFFEF5350,
         ),
         ClassDef(
             id = 2, name = "Paládin", blurb = "Páncélos tank, lassú öngyógyulás",
             maxHp = 190, fireInterval = 0.4f, range = 300f, damage = 24,
-            bulletSpeed = 640f, moveSpeed = 215f, selfRegenPerSec = 4f, color = 0xFFFFCA28,
+            bulletSpeed = 640f, moveSpeed = 215f, selfRegenPerSec = 4f,
+            abilityName = "Pajzs", abilityCooldown = 14f, color = 0xFFFFCA28,
         ),
         ClassDef(
             id = 3, name = "Pap", blurb = "Gyógyító aura a társaknak",
             maxHp = 105, fireInterval = 0.5f, range = 360f, damage = 15,
             bulletSpeed = 680f, moveSpeed = 225f,
-            healAuraRadius = 230f, healAuraPerSec = 6f, color = 0xFFE0F0FF,
+            healAuraRadius = 230f, healAuraPerSec = 6f,
+            abilityName = "Szentfény", abilityCooldown = 12f, color = 0xFFE0F0FF,
         ),
         ClassDef(
             id = 4, name = "Boszorkány", blurb = "Átütő, nagy sebzésű mágia",
             maxHp = 85, fireInterval = 0.5f, range = 440f, damage = 38,
-            bulletSpeed = 560f, moveSpeed = 220f, pierce = true, color = 0xFFAB47BC,
+            bulletSpeed = 560f, moveSpeed = 220f, pierce = true,
+            abilityName = "Robbanás", abilityCooldown = 11f, color = 0xFFAB47BC,
         ),
     )
 

@@ -267,6 +267,7 @@ class FirebaseGameNetwork private constructor(
             "colorIndex" to p.colorIndex,
             "score" to p.score,
             "classId" to p.classId,
+            "healPulse" to p.healPulse,
         )
 
         private fun powerupToMap(p: PowerUp): Map<String, Any> = mapOf(
@@ -309,6 +310,7 @@ class FirebaseGameNetwork private constructor(
                 colorIndex = s.int("colorIndex", 0),
                 score = s.int("score", 0),
                 classId = s.int("classId", 0),
+                healPulse = s.int("healPulse", 0),
             )
         }
 

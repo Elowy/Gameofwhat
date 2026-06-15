@@ -47,6 +47,22 @@ A kezdés előtt mindenki választ egy kasztot (offline a menüben, online a lob
 
 A kasztokat a `Classes.kt`-ben lehet hangolni / bővíteni.
 
+### Aktív képességek
+
+Minden kaszthoz tartozik egy **aktív képesség** (a játékban jobb alul lévő gombbal,
+cooldownnal):
+
+| Kaszt | Képesség | Hatás |
+|-------|----------|-------|
+| **Vadász** | Nyílzápor | nyílvesszők minden irányba (átütő) |
+| **Harcos** | Forgószél | nagy sebzésű AoE suhintás maga körül |
+| **Paládin** | Pajzs | pár másodperc sebezhetetlenség |
+| **Pap** | Szentfény | azonnali köris gyógyítás magának + a közeli társaknak |
+| **Boszorkány** | Robbanás | mágikus nóva, AoE sebzés maga körül |
+
+A gomb a hátralévő cooldownt is mutatja; a pap gyógyítását a `PlayerState.healPulse`
+mező szinkronizálja (a hatókörben lévők saját magukat gyógyítják).
+
 ## Power-upok és szintek
 
 - **Power-upok:** a szörnyek eséllyel dobnak felvehető tárgyat — **gyógyítás**,
@@ -73,7 +89,7 @@ módban teljesen azonos.
 ```
 rooms/{KÓD}/
   meta            -> { phase, hostId, wave, score, mapId, xp, level }
-  players/{id}    -> { id, name, x, y, angle, hp, maxHp, alive, colorIndex, score, classId }
+  players/{id}    -> { id, name, x, y, angle, hp, maxHp, alive, colorIndex, score, classId, healPulse }
   enemies/{id}    -> { id, x, y, hp, maxHp, type }   # a host írja
   powerups/{id}   -> { id, x, y, type }              # a host írja
   hits/{pushId}   -> { enemyId, damage }             # kliensek pusholják, a host feldolgozza

@@ -36,6 +36,7 @@ data class PlayerState(
     val colorIndex: Int = 0,
     val score: Int = 0,
     val classId: Int = 0,
+    val healPulse: Int = 0,   // bumped when a priest casts their circle heal
 )
 
 /** Network-shared state of an enemy. Owned/published by the host. */
@@ -83,5 +84,5 @@ data class Bullet(
     val hitIds: MutableSet<String> = mutableSetOf(),
 )
 
-/** A short-lived hit/explosion spark for visual feedback. */
-data class Spark(var x: Float, var y: Float, var life: Float, val max: Float)
+/** A short-lived hit/explosion spark for visual feedback. [r] sets the expansion size. */
+data class Spark(var x: Float, var y: Float, var life: Float, val max: Float, val r: Float = 26f)

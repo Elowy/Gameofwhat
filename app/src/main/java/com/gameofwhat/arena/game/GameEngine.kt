@@ -3,6 +3,7 @@ package com.gameofwhat.arena.game
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import com.gameofwhat.arena.net.GameNetwork
+import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -30,6 +31,11 @@ data class RenderState(
     val buffDamage: Boolean = false,
     val buffSpeed: Boolean = false,
     val buffFire: Boolean = false,
+    val abilityName: String = "",
+    val abilityReady: Boolean = false,
+    val abilityCdRemaining: Float = 0f,
+    val abilityCdTotal: Float = 1f,
+    val localShield: Boolean = false,
 )
 
 private class HostEnemy(
@@ -88,6 +94,11 @@ class GameEngine(private val net: GameNetwork) {
     private var buffSpeedTimer = 0f
     private var buffFireTimer = 0f
 
+    // Active ability cooldown / paladin shield (seconds remaining).
+    private var abilityTimer = 0f
+    private var shieldTimer = 0f
+    private val lastHealPulse = HashMap<String, Int>()
+
     // Host-only state.
     private val hostEnemies = ArrayList<HostEnemy>()
     private val hostPowerups = ArrayList<PowerUp>()
@@ -102,10 +113,65 @@ class GameEngine(private val net: GameNetwork) {
 
     init {
         net.sendLocalPlayer(local)
+        for ((id, p) in net.players.value) lastHealPulse[id] = p.healPulse
     }
 
     fun setMoveInput(x: Float, y: Float) {
         inX = x; inY = y
+    }
+
+    /** Trigger the local player's class ability if off cooldown and alive. */
+    fun activateAbility() {
+        if (!local.alive || abilityTimer > 0f) return
+        val cdef = Classes.byId(local.classId)
+        abilityTimer = cdef.abilityCooldown
+        val lvl = if (isHost) level else net.meta.value.level
+        val base = (cdef.damage * Progression.damageMultiplier(lvl)).toInt().coerceAtLeast(1)
+        when (local.classId) {
+            0 -> { // Vadász — Nyílzápor: arrows in every direction.
+                val n = GameConfig.VOLLEY_ARROWS
+                for (i in 0 until n) {
+                    val a = i.toFloat() / n * (2f * PI.toFloat())
+                    bullets.add(
+                        Bullet(
+                            x = local.x + cos(a) * GameConfig.PLAYER_RADIUS,
+                            y = local.y + sin(a) * GameConfig.PLAYER_RADIUS,
+                            vx = cos(a) * cdef.bulletSpeed,
+                            vy = sin(a) * cdef.bulletSpeed,
+                            life = GameConfig.BULLET_LIFE,
+                            ownerColorIndex = local.colorIndex,
+                            damage = base,
+                            pierce = true,
+                        )
+                    )
+                }
+            }
+            1 -> { // Harcos — Forgószél: heavy AoE cleave.
+                val rad = GameConfig.WHIRLWIND_RADIUS
+                for (e in enemiesForLogic()) {
+                    if (e.hp > 0 &&
+                        dist(local.x, local.y, e.x, e.y) <= rad + GameConfig.enemyRadius(e.type)
+                    ) net.reportHit(e.id, (base * GameConfig.WHIRLWIND_MULT).toInt())
+                }
+                sparks.add(Spark(local.x, local.y, 0.35f, 0.35f, rad))
+            }
+            2 -> { // Paládin — Pajzs: brief invulnerability.
+                shieldTimer = GameConfig.SHIELD_DURATION
+            }
+            3 -> { // Pap — Szentfény: bump heal pulse (self + allies heal via detection).
+                local = local.copy(healPulse = local.healPulse + 1)
+                net.sendLocalPlayer(local)
+            }
+            else -> { // Boszorkány — Robbanás: AoE magic nova.
+                val rad = GameConfig.NOVA_RADIUS
+                for (e in enemiesForLogic()) {
+                    if (e.hp > 0 &&
+                        dist(local.x, local.y, e.x, e.y) <= rad + GameConfig.enemyRadius(e.type)
+                    ) net.reportHit(e.id, (base * GameConfig.NOVA_MULT).toInt())
+                }
+                sparks.add(Spark(local.x, local.y, 0.4f, 0.4f, rad))
+            }
+        }
     }
 
     fun update(dt: Float) {
@@ -124,6 +190,7 @@ class GameEngine(private val net: GameNetwork) {
             updateAttack(d, cdef, lvl)
             updateBullets(d)
             updateSupport(d)
+            detectHealPulses()
             updateContactDamage(d)
             updatePickups()
         }
@@ -146,6 +213,30 @@ class GameEngine(private val net: GameNetwork) {
         if (buffDamageTimer > 0f) buffDamageTimer -= dt
         if (buffSpeedTimer > 0f) buffSpeedTimer -= dt
         if (buffFireTimer > 0f) buffFireTimer -= dt
+        if (abilityTimer > 0f) abilityTimer -= dt
+        if (shieldTimer > 0f) shieldTimer -= dt
+    }
+
+    /** Heal the local player when a nearby priest (incl. self) casts their circle heal. */
+    private fun detectHealPulses() {
+        if (!local.alive) return
+        for (p in allPlayers()) {
+            if (!p.alive) continue
+            val pc = Classes.byId(p.classId)
+            if (pc.healAuraPerSec <= 0f) continue
+            val last = lastHealPulse[p.id] ?: 0
+            if (p.healPulse > last) {
+                lastHealPulse[p.id] = p.healPulse
+                if (local.hp < local.maxHp &&
+                    dist(local.x, local.y, p.x, p.y) <= pc.healAuraRadius
+                ) {
+                    local = local.copy(
+                        hp = (local.hp + GameConfig.PRIEST_HEAL_AMOUNT).coerceAtMost(local.maxHp)
+                    )
+                    sparks.add(Spark(local.x, local.y, 0.45f, 0.45f, 70f))
+                }
+            }
+        }
     }
 
     private fun damageMult() = if (buffDamageTimer > 0f) GameConfig.DAMAGE_BUFF_MULT else 1f
@@ -271,6 +362,7 @@ class GameEngine(private val net: GameNetwork) {
 
     private fun updateContactDamage(dt: Float) {
         if (!local.alive) return
+        if (shieldTimer > 0f) return // Paladin shield: immune to contact damage.
         contactTimer -= dt
         if (contactTimer > 0f) return
         val touching = enemiesForLogic().any {
@@ -471,6 +563,7 @@ class GameEngine(private val net: GameNetwork) {
         val players = remote + local
         val lvl = if (isHost) level else meta.level
         val xp = if (isHost) teamXp else meta.xp
+        val cdef = Classes.byId(local.classId)
         _renderState.value = RenderState(
             players = players,
             localId = localId,
@@ -492,6 +585,11 @@ class GameEngine(private val net: GameNetwork) {
             buffDamage = buffDamageTimer > 0f,
             buffSpeed = buffSpeedTimer > 0f,
             buffFire = buffFireTimer > 0f,
+            abilityName = cdef.abilityName,
+            abilityReady = abilityTimer <= 0f && local.alive,
+            abilityCdRemaining = abilityTimer.coerceAtLeast(0f),
+            abilityCdTotal = cdef.abilityCooldown,
+            localShield = shieldTimer > 0f,
         )
     }
 
