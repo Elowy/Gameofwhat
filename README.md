@@ -41,7 +41,7 @@ A kezdés előtt mindenki választ egy kasztot (offline a menüben, online a lob
 |-------|--------|
 | **Vadász** | gyors, hosszú hatótávú íjász, kevesebb életerő |
 | **Harcos** | közelharci suhintás (több ellenfelet talál), sok életerő |
-| **Paládin** | páncélos tank, lassú öngyógyulással |
+| **Paladin** | páncélos tank, lassú öngyógyulással |
 | **Pap** | gyógyító aura a közeli társaknak, gyengébb sebzés |
 | **Boszorkány** | átütő, nagy sebzésű mágia, törékeny |
 
@@ -56,7 +56,7 @@ cooldownnal):
 |-------|----------|-------|
 | **Vadász** | Nyílzápor | nyílvesszők minden irányba (átütő) |
 | **Harcos** | Forgószél | nagy sebzésű AoE suhintás maga körül |
-| **Paládin** | Pajzs | pár másodperc sebezhetetlenség |
+| **Paladin** | Pajzs | pár másodperc sebezhetetlenség |
 | **Pap** | Szentfény | azonnali köris gyógyítás magának + a közeli társaknak |
 | **Boszorkány** | Robbanás | mágikus nóva, AoE sebzés maga körül |
 

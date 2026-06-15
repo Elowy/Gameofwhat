@@ -36,7 +36,7 @@ object Classes {
             abilityName = "Forgószél", abilityCooldown = 10f, color = 0xFFEF5350,
         ),
         ClassDef(
-            id = 2, name = "Paládin", blurb = "Páncélos tank, lassú öngyógyulás",
+            id = 2, name = "Paladin", blurb = "Páncélos tank, lassú öngyógyulás",
             maxHp = 190, fireInterval = 0.4f, range = 300f, damage = 24,
             bulletSpeed = 640f, moveSpeed = 215f, selfRegenPerSec = 4f,
             abilityName = "Pajzs", abilityCooldown = 14f, color = 0xFFFFCA28,

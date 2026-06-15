@@ -155,7 +155,7 @@ class GameEngine(private val net: GameNetwork) {
                 }
                 sparks.add(Spark(local.x, local.y, 0.35f, 0.35f, rad))
             }
-            2 -> { // Paládin — Pajzs: brief invulnerability.
+            2 -> { // Paladin — Pajzs: brief invulnerability.
                 shieldTimer = GameConfig.SHIELD_DURATION
             }
             3 -> { // Pap — Szentfény: bump heal pulse (self + allies heal via detection).
