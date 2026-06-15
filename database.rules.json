@@ -1,0 +1,13 @@
+{
+  "//": "DEVELOPMENT-ONLY rules for the Realtime Database. Anyone can read/write rooms.",
+  "//2": "Tighten these before any public/production release (e.g. require Firebase Auth).",
+  "rules": {
+    "rooms": {
+      "$code": {
+        ".read": true,
+        ".write": true,
+        ".indexOn": ["meta/phase"]
+      }
+    }
+  }
+}

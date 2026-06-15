@@ -1,0 +1,16 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+build/
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Build artifacts (APKs are generated, not committed)
+*.apk
+
+# Firebase config — each developer supplies their own. See README.md.
+/app/google-services.json
