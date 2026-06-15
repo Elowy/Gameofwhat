@@ -41,6 +41,7 @@ fun MenuScreen(vm: AppViewModel) {
     val busy by vm.busy
     val error by vm.error
     val selectedMap by vm.selectedMapId
+    val selectedClass by vm.selectedClassId
     var code by remember { mutableStateOf("") }
 
     Column(
@@ -65,6 +66,19 @@ fun MenuScreen(vm: AppViewModel) {
             onValueChange = vm::setPlayerName,
             label = { Text("Neved") },
             singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Text(
+            "KASZT",
+            fontWeight = FontWeight.Bold,
+            color = Primary.copy(alpha = 0.7f),
+            modifier = Modifier.align(Alignment.Start),
+        )
+        ClassPicker(
+            selectedId = selectedClass,
+            enabled = !busy,
+            onSelect = vm::setSelectedClass,
             modifier = Modifier.fillMaxWidth(),
         )
 

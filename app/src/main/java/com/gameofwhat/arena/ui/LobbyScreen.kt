@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gameofwhat.arena.AppViewModel
+import com.gameofwhat.arena.game.Classes
 import com.gameofwhat.arena.game.Maps
 import com.gameofwhat.arena.ui.theme.PlayerColors
 import com.gameofwhat.arena.ui.theme.Primary
@@ -78,11 +79,26 @@ fun LobbyScreen(vm: AppViewModel) {
                         Text(
                             p.name + if (p.id == net.localId) " (te)" else "",
                             fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            Classes.byId(p.classId).name,
+                            color = Primary.copy(alpha = 0.8f),
+                            fontWeight = FontWeight.SemiBold,
                         )
                     }
                 }
             }
         }
+
+        Spacer(Modifier.height(8.dp))
+        Text("A KASZTOD", fontWeight = FontWeight.Bold, color = Primary.copy(alpha = 0.7f))
+        ClassPicker(
+            selectedId = players[net.localId]?.classId ?: 0,
+            enabled = true,
+            onSelect = vm::setSelectedClass,
+            modifier = Modifier.fillMaxWidth(),
+        )
 
         Spacer(Modifier.height(8.dp))
         Text("PÁLYA", fontWeight = FontWeight.Bold, color = Primary.copy(alpha = 0.7f))

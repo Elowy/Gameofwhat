@@ -33,6 +33,28 @@ A host (online) vagy te (offline) a kezdés előtt választhattok pályát:
 
 Új pályát a `Maps.kt`-ben tudsz hozzáadni (név, színek, akadályok listája).
 
+## Kasztok
+
+A kezdés előtt mindenki választ egy kasztot (offline a menüben, online a lobbyban):
+
+| Kaszt | Stílus |
+|-------|--------|
+| **Vadász** | gyors, hosszú hatótávú íjász, kevesebb életerő |
+| **Harcos** | közelharci suhintás (több ellenfelet talál), sok életerő |
+| **Paládin** | páncélos tank, lassú öngyógyulással |
+| **Pap** | gyógyító aura a közeli társaknak, gyengébb sebzés |
+| **Boszorkány** | átütő, nagy sebzésű mágia, törékeny |
+
+A kasztokat a `Classes.kt`-ben lehet hangolni / bővíteni.
+
+## Power-upok és szintek
+
+- **Power-upok:** a szörnyek eséllyel dobnak felvehető tárgyat — **gyógyítás**,
+  **sebzésnövelő**, **gyorsaság** és **gyorstűz** (az utóbbi három időleges buff).
+- **XP és szintek:** a szörnyek XP-t adnak; a csapat **közös szintet** lép (max **10**).
+  Minden szint több életerőt és sebzést ad mindenkinek. A szintet és XP-t a host számolja,
+  és a `RoomMeta`-n keresztül szinkronizálja.
+
 ## Technikai felépítés
 
 | Réteg | Megoldás |
@@ -50,10 +72,12 @@ módban teljesen azonos.
 
 ```
 rooms/{KÓD}/
-  meta            -> { phase, hostId, wave, score, mapId }
-  players/{id}    -> { id, name, x, y, angle, hp, maxHp, alive, colorIndex, score }
+  meta            -> { phase, hostId, wave, score, mapId, xp, level }
+  players/{id}    -> { id, name, x, y, angle, hp, maxHp, alive, colorIndex, score, classId }
   enemies/{id}    -> { id, x, y, hp, maxHp, type }   # a host írja
+  powerups/{id}   -> { id, x, y, type }              # a host írja
   hits/{pushId}   -> { enemyId, damage }             # kliensek pusholják, a host feldolgozza
+  pickups/{pushId}-> { id }                          # felvett power-up, a host eltávolítja
 ```
 
 ## Online mód bekapcsolása (Firebase)

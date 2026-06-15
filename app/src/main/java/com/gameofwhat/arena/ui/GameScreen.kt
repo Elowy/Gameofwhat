@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -28,10 +29,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gameofwhat.arena.AppViewModel
+import com.gameofwhat.arena.game.Classes
 import com.gameofwhat.arena.game.GameConfig
 import com.gameofwhat.arena.game.GameEngine
 import com.gameofwhat.arena.game.Maps
 import com.gameofwhat.arena.game.Phase
+import com.gameofwhat.arena.game.Progression
 import com.gameofwhat.arena.game.RenderState
 import com.gameofwhat.arena.ui.theme.Background
 import com.gameofwhat.arena.ui.theme.Danger
@@ -44,6 +47,10 @@ import kotlin.math.sin
 // Medieval monster palette, indexed by type: 0 goblin, 1 wolf, 2 ogre.
 private val EnemyBody = listOf(Color(0xFF7CB342), Color(0xFFB0BEC5), Color(0xFF8E24AA))
 private val EnemyDark = listOf(Color(0xFF33691E), Color(0xFF546E7A), Color(0xFF4A148C))
+
+// Power-up palette, indexed by type: 0 heal, 1 damage, 2 speed, 3 rapid-fire.
+private val PowerColors = listOf(Color(0xFF66BB6A), Color(0xFFEF5350), Color(0xFF42A5F5), Color(0xFFFFEE58))
+private val PowerLabels = listOf("+", "⚔", "»", "↯")
 
 @Composable
 fun GameScreen(vm: AppViewModel, engine: GameEngine) {
@@ -88,11 +95,13 @@ fun GameScreen(vm: AppViewModel, engine: GameEngine) {
                 fontSize = 18.sp,
             )
             Text(
-                Maps.byId(rs.mapId).name,
+                "${Classes.byId(rs.localClassId).name}  •  ${Maps.byId(rs.mapId).name}",
                 color = Primary.copy(alpha = 0.7f),
                 fontSize = 13.sp,
             )
+            XpBar(rs.level, rs.xpInto, rs.xpSpan)
             HealthBar(rs.localHp, rs.localMaxHp)
+            BuffRow(rs)
             if (!rs.localAlive && rs.phase == Phase.PLAYING) {
                 Text("Kiestél — várj a társaidra!", color = Danger, fontSize = 13.sp)
             }
@@ -112,6 +121,55 @@ fun GameScreen(vm: AppViewModel, engine: GameEngine) {
             GameOverOverlay(rs) { vm.backToMenu() }
         }
     }
+}
+
+@Composable
+private fun XpBar(level: Int, xpInto: Int, xpSpan: Int) {
+    val frac = if (xpSpan > 0) xpInto.toFloat() / xpSpan else 1f
+    val maxed = level >= Progression.MAX_LEVEL
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(0.6f)
+            .background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
+            .padding(2.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(if (maxed) 1f else frac.coerceIn(0f, 1f))
+                .background(Color(0xFF7C4DFF), RoundedCornerShape(6.dp))
+                .padding(vertical = 6.dp)
+        )
+        Text(
+            if (maxed) "Szint $level (MAX)" else "Szint $level",
+            color = Color.White,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.Center),
+        )
+    }
+}
+
+@Composable
+private fun BuffRow(rs: RenderState) {
+    if (!rs.buffDamage && !rs.buffSpeed && !rs.buffFire) return
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (rs.buffDamage) BuffChip("Sebzés", Color(0xFFEF5350))
+        if (rs.buffSpeed) BuffChip("Gyorsaság", Color(0xFF42A5F5))
+        if (rs.buffFire) BuffChip("Gyorstűz", Color(0xFFFFEE58))
+    }
+}
+
+@Composable
+private fun BuffChip(label: String, color: Color) {
+    Text(
+        label,
+        color = Color.Black,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier
+            .background(color, RoundedCornerShape(6.dp))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+    )
 }
 
 @Composable
@@ -152,6 +210,7 @@ private fun GameOverOverlay(rs: RenderState, onMenu: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("VÉGE", fontSize = 44.sp, fontWeight = FontWeight.Black, color = Danger)
+            Text("Elért szint: ${rs.level}", fontSize = 18.sp, color = Color.White)
             Text("Elért hullám: ${rs.wave}", fontSize = 18.sp, color = Color.White)
             Text("Pontszám: ${rs.score}", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Primary)
             Button(onClick = onMenu, modifier = Modifier.padding(top = 12.dp)) {
@@ -256,6 +315,19 @@ private fun DrawScope.drawArena(
         }
     }
 
+    // Power-ups on the ground.
+    for (pu in rs.powerups) {
+        val t = pu.type % PowerColors.size
+        val center = Offset(sx(pu.x), sy(pu.y))
+        val r = GameConfig.POWERUP_RADIUS * scale
+        drawCircle(PowerColors[t].copy(alpha = 0.25f), r * 1.5f, center)
+        drawCircle(PowerColors[t], r, center)
+        drawCircle(Color.White, r, center, style = Stroke(2.5f))
+        paint.color = android.graphics.Color.WHITE
+        paint.textSize = r * 1.4f
+        drawContext.canvas.nativeCanvas.drawText(PowerLabels[t], center.x, center.y + r * 0.5f, paint)
+    }
+
     // Arrows.
     for (b in rs.bullets) {
         val len = b.vx * b.vx + b.vy * b.vy
@@ -276,6 +348,8 @@ private fun DrawScope.drawArena(
         val r = GameConfig.PLAYER_RADIUS * scale
         val drawColor = if (p.alive) c else c.copy(alpha = 0.25f)
         drawCircle(drawColor, radius = r, center = center)
+        // Class-coloured core.
+        drawCircle(Color(Classes.byId(p.classId).color), radius = r * 0.5f, center = center)
         // Local player highlight ring.
         if (p.id == rs.localId) {
             drawCircle(Color.White, radius = r + 4f, center = center, style = Stroke(width = 3f))

@@ -36,6 +36,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _selectedMapId = mutableStateOf(0)
     val selectedMapId: State<Int> = _selectedMapId
 
+    private val _selectedClassId = mutableStateOf(0)
+    val selectedClassId: State<Int> = _selectedClassId
+
     /** True when a real Firebase config (google-services.json) is present. */
     val firebaseAvailable: Boolean =
         FirebaseApp.getApps(getApplication()).isNotEmpty()
@@ -47,12 +50,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setSelectedMap(id: Int) { _selectedMapId.value = id }
 
+    /** Pick the local player's class. In the lobby this also updates the shared node. */
+    fun setSelectedClass(id: Int) {
+        _selectedClassId.value = id
+        val n = net ?: return
+        val p = n.players.value[n.localId] ?: return
+        n.sendLocalPlayer(p.copy(classId = id))
+    }
+
     fun clearError() { _error.value = null }
 
     /** Offline single-player practice — no Firebase required. */
     fun startPractice() {
         cleanup()
-        val n = LocalGameNetwork(_playerName.value.ifBlank { "You" }, _selectedMapId.value)
+        val n = LocalGameNetwork(
+            _playerName.value.ifBlank { "You" }, _selectedMapId.value, _selectedClassId.value,
+        )
         net = n
         _screen.value = Screen.Game(GameEngine(n))
     }
@@ -63,7 +76,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 cleanup()
-                val n = FirebaseGameNetwork.createRoom(_playerName.value, _selectedMapId.value)
+                val n = FirebaseGameNetwork.createRoom(
+                    _playerName.value, _selectedMapId.value, _selectedClassId.value,
+                )
                 net = n
                 observeMeta(n)
                 _screen.value = Screen.Lobby
@@ -82,7 +97,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 cleanup()
-                val n = FirebaseGameNetwork.joinRoom(code, _playerName.value)
+                val n = FirebaseGameNetwork.joinRoom(code, _playerName.value, _selectedClassId.value)
                 net = n
                 observeMeta(n)
                 _screen.value = Screen.Lobby

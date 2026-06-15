@@ -31,6 +31,15 @@ object GameConfig {
         else -> 19f // goblin
     }
 
+    // Power-ups
+    const val POWERUP_RADIUS = 18f
+    const val POWERUP_DROP_CHANCE = 0.16f   // chance an enemy drops one on death
+    const val BUFF_DURATION = 8f            // seconds
+    const val HEAL_PICKUP_AMOUNT = 45
+    const val DAMAGE_BUFF_MULT = 1.6f
+    const val SPEED_BUFF_MULT = 1.5f
+    const val RAPIDFIRE_BUFF_MULT = 0.5f    // multiplies fire interval (lower = faster)
+
     // Networking cadence
     const val PLAYER_SYNC_HZ = 15f
     const val ENEMY_SYNC_HZ = 12f

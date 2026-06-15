@@ -35,6 +35,7 @@ data class PlayerState(
     val alive: Boolean = true,
     val colorIndex: Int = 0,
     val score: Int = 0,
+    val classId: Int = 0,
 )
 
 /** Network-shared state of an enemy. Owned/published by the host. */
@@ -54,6 +55,16 @@ data class RoomMeta(
     val wave: Int = 0,
     val score: Int = 0,
     val mapId: Int = 0,
+    val xp: Int = 0,
+    val level: Int = 1,
+)
+
+/** A pickup dropped in the arena. type: 0 heal, 1 damage, 2 speed, 3 rapid-fire. */
+data class PowerUp(
+    val id: String = "",
+    val x: Float = 0f,
+    val y: Float = 0f,
+    val type: Int = 0,
 )
 
 /** A damage event reported by a client and applied by the host. */
@@ -67,6 +78,9 @@ data class Bullet(
     val vy: Float,
     var life: Float,
     val ownerColorIndex: Int,
+    val damage: Int,
+    val pierce: Boolean = false,
+    val hitIds: MutableSet<String> = mutableSetOf(),
 )
 
 /** A short-lived hit/explosion spark for visual feedback. */

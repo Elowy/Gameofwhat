@@ -5,6 +5,7 @@ import com.gameofwhat.arena.game.GameConfig
 import com.gameofwhat.arena.game.HitEvent
 import com.gameofwhat.arena.game.Phase
 import com.gameofwhat.arena.game.PlayerState
+import com.gameofwhat.arena.game.PowerUp
 import com.gameofwhat.arena.game.RoomMeta
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -43,18 +44,23 @@ class FirebaseGameNetwork private constructor(
 
     private val _players = MutableStateFlow<Map<String, PlayerState>>(emptyMap())
     private val _enemies = MutableStateFlow<List<EnemyState>>(emptyList())
+    private val _powerups = MutableStateFlow<List<PowerUp>>(emptyList())
     private val _meta = MutableStateFlow(RoomMeta())
 
     override val players: StateFlow<Map<String, PlayerState>> = _players.asStateFlow()
     override val enemies: StateFlow<List<EnemyState>> = _enemies.asStateFlow()
+    override val powerups: StateFlow<List<PowerUp>> = _powerups.asStateFlow()
     override val meta: StateFlow<RoomMeta> = _meta.asStateFlow()
 
     private val pendingHits = ArrayDeque<HitEvent>()
+    private val pendingPickups = ArrayDeque<String>()
 
     private val playersRef = roomRef.child("players")
     private val enemiesRef = roomRef.child("enemies")
+    private val powerupsRef = roomRef.child("powerups")
     private val metaRef = roomRef.child("meta")
     private val hitsRef = roomRef.child("hits")
+    private val pickupsRef = roomRef.child("pickups")
     private val myPlayerRef = playersRef.child(localId)
 
     private val playersListener = object : ValueEventListener {
@@ -77,9 +83,33 @@ class FirebaseGameNetwork private constructor(
         override fun onCancelled(error: DatabaseError) {}
     }
 
+    private val powerupsListener = object : ValueEventListener {
+        override fun onDataChange(snapshot: DataSnapshot) {
+            val list = ArrayList<PowerUp>()
+            for (child in snapshot.children) parsePowerup(child)?.let { list.add(it) }
+            _powerups.value = list
+        }
+        override fun onCancelled(error: DatabaseError) {}
+    }
+
     private val metaListener = object : ValueEventListener {
         override fun onDataChange(snapshot: DataSnapshot) {
             _meta.value = parseMeta(snapshot)
+        }
+        override fun onCancelled(error: DatabaseError) {}
+    }
+
+    // Host drains pickup claims and clears the node after reading.
+    private val pickupsListener = object : ValueEventListener {
+        override fun onDataChange(snapshot: DataSnapshot) {
+            if (!snapshot.hasChildren()) return
+            synchronized(pendingPickups) {
+                for (child in snapshot.children) {
+                    val id = child.child("id").value as? String ?: continue
+                    pendingPickups.add(id)
+                }
+            }
+            pickupsRef.removeValue()
         }
         override fun onCancelled(error: DatabaseError) {}
     }
@@ -103,8 +133,12 @@ class FirebaseGameNetwork private constructor(
     private fun attachListeners() {
         playersRef.addValueEventListener(playersListener)
         enemiesRef.addValueEventListener(enemiesListener)
+        powerupsRef.addValueEventListener(powerupsListener)
         metaRef.addValueEventListener(metaListener)
-        if (isHost) hitsRef.addValueEventListener(hitsListener)
+        if (isHost) {
+            hitsRef.addValueEventListener(hitsListener)
+            pickupsRef.addValueEventListener(pickupsListener)
+        }
         // Remove our player node automatically if we disconnect unexpectedly.
         myPlayerRef.onDisconnect().removeValue()
     }
@@ -117,11 +151,22 @@ class FirebaseGameNetwork private constructor(
         hitsRef.push().setValue(mapOf("enemyId" to enemyId, "damage" to damage))
     }
 
+    override fun reportPickup(powerUpId: String) {
+        pickupsRef.push().setValue(mapOf("id" to powerUpId))
+    }
+
     override fun publishEnemies(enemies: List<EnemyState>) {
         if (!isHost) return
         val map = HashMap<String, Any>()
         for (e in enemies) map[e.id] = enemyToMap(e)
         enemiesRef.setValue(map)
+    }
+
+    override fun publishPowerups(powerups: List<PowerUp>) {
+        if (!isHost) return
+        val map = HashMap<String, Any>()
+        for (p in powerups) map[p.id] = powerupToMap(p)
+        powerupsRef.setValue(map)
     }
 
     override fun publishMeta(meta: RoomMeta) {
@@ -135,11 +180,21 @@ class FirebaseGameNetwork private constructor(
         out
     }
 
+    override fun drainPickups(): List<String> = synchronized(pendingPickups) {
+        val out = pendingPickups.toList()
+        pendingPickups.clear()
+        out
+    }
+
     override fun close() {
         playersRef.removeEventListener(playersListener)
         enemiesRef.removeEventListener(enemiesListener)
+        powerupsRef.removeEventListener(powerupsListener)
         metaRef.removeEventListener(metaListener)
-        if (isHost) hitsRef.removeEventListener(hitsListener)
+        if (isHost) {
+            hitsRef.removeEventListener(hitsListener)
+            pickupsRef.removeEventListener(pickupsListener)
+        }
         myPlayerRef.onDisconnect().cancel()
         myPlayerRef.removeValue()
         // The host tears the whole room down when it leaves.
@@ -152,7 +207,7 @@ class FirebaseGameNetwork private constructor(
         private fun randomCode(): String =
             (1..4).map { CODE_CHARS[Random.nextInt(CODE_CHARS.length)] }.joinToString("")
 
-        suspend fun createRoom(name: String, mapId: Int): FirebaseGameNetwork {
+        suspend fun createRoom(name: String, mapId: Int, classId: Int): FirebaseGameNetwork {
             val root = db().getReference("rooms")
             // Find an unused 4-char code.
             var code = randomCode()
@@ -168,12 +223,14 @@ class FirebaseGameNetwork private constructor(
             ).await()
             val net = FirebaseGameNetwork(code, localId, isHost = true, roomRef)
             net.attachListeners()
-            val me = PlayerState(id = localId, name = name.ifBlank { "Host" }, colorIndex = 0)
+            val me = PlayerState(
+                id = localId, name = name.ifBlank { "Host" }, colorIndex = 0, classId = classId,
+            )
             net.myPlayerRef.setValue(playerToMap(me)).await()
             return net
         }
 
-        suspend fun joinRoom(code: String, name: String): FirebaseGameNetwork {
+        suspend fun joinRoom(code: String, name: String, classId: Int): FirebaseGameNetwork {
             val normalized = code.trim().uppercase()
             val roomRef = db().getReference("rooms").child(normalized)
             val metaSnap = roomRef.child("meta").get().await()
@@ -190,6 +247,7 @@ class FirebaseGameNetwork private constructor(
                 id = localId,
                 name = name.ifBlank { "Player" },
                 colorIndex = count % 6,
+                classId = classId,
             )
             net.myPlayerRef.setValue(playerToMap(me)).await()
             return net
@@ -208,6 +266,14 @@ class FirebaseGameNetwork private constructor(
             "alive" to p.alive,
             "colorIndex" to p.colorIndex,
             "score" to p.score,
+            "classId" to p.classId,
+        )
+
+        private fun powerupToMap(p: PowerUp): Map<String, Any> = mapOf(
+            "id" to p.id,
+            "x" to p.x.toDouble(),
+            "y" to p.y.toDouble(),
+            "type" to p.type,
         )
 
         private fun enemyToMap(e: EnemyState): Map<String, Any> = mapOf(
@@ -225,6 +291,8 @@ class FirebaseGameNetwork private constructor(
             "wave" to m.wave,
             "score" to m.score,
             "mapId" to m.mapId,
+            "xp" to m.xp,
+            "level" to m.level,
         )
 
         private fun parsePlayer(s: DataSnapshot): PlayerState? {
@@ -240,7 +308,13 @@ class FirebaseGameNetwork private constructor(
                 alive = s.bool("alive", true),
                 colorIndex = s.int("colorIndex", 0),
                 score = s.int("score", 0),
+                classId = s.int("classId", 0),
             )
+        }
+
+        private fun parsePowerup(s: DataSnapshot): PowerUp? {
+            val id = s.child("id").value as? String ?: s.key ?: return null
+            return PowerUp(id = id, x = s.float("x"), y = s.float("y"), type = s.int("type", 0))
         }
 
         private fun parseEnemy(s: DataSnapshot): EnemyState? {
@@ -261,6 +335,8 @@ class FirebaseGameNetwork private constructor(
             wave = s.int("wave", 0),
             score = s.int("score", 0),
             mapId = s.int("mapId", 0),
+            xp = s.int("xp", 0),
+            level = s.int("level", 1),
         )
 
         private fun DataSnapshot.float(key: String, def: Float = 0f): Float =
