@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gameofwhat.arena.AppViewModel
+import com.gameofwhat.arena.game.Maps
 import com.gameofwhat.arena.ui.theme.PlayerColors
 import com.gameofwhat.arena.ui.theme.Primary
 
@@ -34,6 +35,7 @@ import com.gameofwhat.arena.ui.theme.Primary
 fun LobbyScreen(vm: AppViewModel) {
     val net = vm.currentNet ?: return
     val players by net.players.collectAsState()
+    val meta by net.meta.collectAsState()
     val isHost = net.isHost
 
     Column(
@@ -82,7 +84,20 @@ fun LobbyScreen(vm: AppViewModel) {
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
+        Text("PÁLYA", fontWeight = FontWeight.Bold, color = Primary.copy(alpha = 0.7f))
+        if (isHost) {
+            MapPicker(
+                selectedId = meta.mapId,
+                enabled = true,
+                onSelect = vm::hostSetMap,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            Text(Maps.byId(meta.mapId).name, fontWeight = FontWeight.SemiBold)
+        }
+
+        Spacer(Modifier.height(8.dp))
 
         if (isHost) {
             Button(

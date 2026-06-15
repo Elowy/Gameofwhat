@@ -17,12 +17,19 @@ object GameConfig {
     const val CONTACT_DAMAGE = 12           // per contact tick
     const val CONTACT_INTERVAL = 0.6f       // seconds between contact damage ticks
 
-    // Enemies
-    const val ENEMY_RADIUS = 20f
+    // Enemies (type 0 = goblin, 1 = wolf, 2 = ogre)
+    const val ENEMY_RADIUS = 19f
     const val MAX_ENEMIES = 14
     const val GRUNT_SPEED = 70f
     const val FAST_SPEED = 130f
     const val TANK_SPEED = 45f
+
+    /** Per-type collision/render radius. */
+    fun enemyRadius(type: Int): Float = when (type) {
+        1 -> 16f   // wolf
+        2 -> 30f   // ogre
+        else -> 19f // goblin
+    }
 
     // Networking cadence
     const val PLAYER_SYNC_HZ = 15f

@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import com.gameofwhat.arena.AppViewModel
 import com.gameofwhat.arena.game.GameConfig
 import com.gameofwhat.arena.game.GameEngine
+import com.gameofwhat.arena.game.Maps
 import com.gameofwhat.arena.game.Phase
 import com.gameofwhat.arena.game.RenderState
 import com.gameofwhat.arena.ui.theme.Background
@@ -39,11 +41,9 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-private val EnemyColors = listOf(
-    Color(0xFFFF6E6E), // grunt
-    Color(0xFFFFF176), // fast
-    Color(0xFFBA68C8), // tank
-)
+// Medieval monster palette, indexed by type: 0 goblin, 1 wolf, 2 ogre.
+private val EnemyBody = listOf(Color(0xFF7CB342), Color(0xFFB0BEC5), Color(0xFF8E24AA))
+private val EnemyDark = listOf(Color(0xFF33691E), Color(0xFF546E7A), Color(0xFF4A148C))
 
 @Composable
 fun GameScreen(vm: AppViewModel, engine: GameEngine) {
@@ -86,6 +86,11 @@ fun GameScreen(vm: AppViewModel, engine: GameEngine) {
                 color = Primary,
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
+            )
+            Text(
+                Maps.byId(rs.mapId).name,
+                color = Primary.copy(alpha = 0.7f),
+                fontSize = 13.sp,
             )
             HealthBar(rs.localHp, rs.localMaxHp)
             if (!rs.localAlive && rs.phase == Phase.PLAYING) {
@@ -169,25 +174,52 @@ private fun DrawScope.drawArena(
     fun sy(wy: Float) = offY + wy * scale
 
     val world = GameConfig.WORLD_SIZE
+    val map = Maps.byId(rs.mapId)
+    fun size(w: Float, h: Float) = androidx.compose.ui.geometry.Size(w, h)
+
     // Arena floor + border.
-    drawRect(
-        color = Color(0xFF11183A),
-        topLeft = Offset(sx(0f), sy(0f)),
-        size = androidx.compose.ui.geometry.Size(world * scale, world * scale),
-    )
-    drawRect(
-        color = Primary.copy(alpha = 0.4f),
-        topLeft = Offset(sx(0f), sy(0f)),
-        size = androidx.compose.ui.geometry.Size(world * scale, world * scale),
-        style = Stroke(width = 3f),
-    )
+    drawRect(Color(map.floor), Offset(sx(0f), sy(0f)), size(world * scale, world * scale))
     // Grid lines.
     val step = world / 10f
     var g = step
     while (g < world) {
-        drawLine(Color.White.copy(alpha = 0.05f), Offset(sx(g), sy(0f)), Offset(sx(g), sy(world)))
-        drawLine(Color.White.copy(alpha = 0.05f), Offset(sx(0f), sy(g)), Offset(sx(world), sy(g)))
+        drawLine(Color(map.grid), Offset(sx(g), sy(0f)), Offset(sx(g), sy(world)))
+        drawLine(Color(map.grid), Offset(sx(0f), sy(g)), Offset(sx(world), sy(g)))
         g += step
+    }
+    drawRect(
+        Color(map.border), Offset(sx(0f), sy(0f)),
+        size(world * scale, world * scale), style = Stroke(width = 4f),
+    )
+
+    // Obstacles (pillars / trees / crates / rocks).
+    for (o in map.obstacles) {
+        val cx = sx(o.x)
+        val cy = sy(o.y)
+        val r = o.r * scale
+        when (map.decoType) {
+            1 -> { // tree
+                drawRect(Color(0xFF5D4037), Offset(cx - r * 0.18f, cy), size(r * 0.36f, r * 1.1f))
+                drawCircle(Color(0xFF2E7D32), r, Offset(cx, cy))
+                drawCircle(Color(0xFF66BB6A), r * 0.55f, Offset(cx - r * 0.3f, cy - r * 0.3f))
+            }
+            2 -> { // crate / stone block
+                val s = size(r * 1.7f, r * 1.7f)
+                val tl = Offset(cx - r * 0.85f, cy - r * 0.85f)
+                drawRoundRect(Color(0xFF3A3A4A), tl, s, CornerRadius(6f, 6f))
+                drawRoundRect(Color(map.accent).copy(alpha = 0.6f), tl, s, CornerRadius(6f, 6f), style = Stroke(2f))
+            }
+            3 -> { // jagged rock
+                drawCircle(Color(0xFF3E2723), r, Offset(cx, cy))
+                drawCircle(Color(map.accent), r, Offset(cx, cy), style = Stroke(3f))
+                drawCircle(Color(0xFF5D4037), r * 0.5f, Offset(cx - r * 0.25f, cy - r * 0.25f))
+            }
+            else -> { // stone pillar
+                drawCircle(Color(0xFF8D8475), r, Offset(cx, cy))
+                drawCircle(Color(0xFF5B554B), r, Offset(cx, cy), style = Stroke(3f))
+                drawCircle(Color(0xFFBDB5A3), r * 0.45f, Offset(cx - r * 0.25f, cy - r * 0.25f))
+            }
+        }
     }
 
     // Sparks (under entities).
@@ -201,30 +233,40 @@ private fun DrawScope.drawArena(
         )
     }
 
-    // Enemies.
+    // Monsters: goblin / wolf / ogre.
     for (e in rs.enemies) {
-        val c = EnemyColors[e.type % EnemyColors.size]
-        val r = GameConfig.ENEMY_RADIUS * scale
-        drawCircle(c, radius = r, center = Offset(sx(e.x), sy(e.y)))
-        drawCircle(Color.Black.copy(alpha = 0.4f), radius = r, center = Offset(sx(e.x), sy(e.y)), style = Stroke(width = 2f))
+        val t = e.type % EnemyBody.size
+        val center = Offset(sx(e.x), sy(e.y))
+        val r = GameConfig.enemyRadius(e.type) * scale
+        drawCircle(EnemyBody[t], radius = r, center = center)
+        drawCircle(EnemyDark[t], radius = r, center = center, style = Stroke(width = 2.5f))
+        // Eyes for a touch of menace.
+        val eo = r * 0.38f
+        val eye = if (t == 1) Color(0xFFFF5252) else Color.Black
+        drawCircle(eye, r * 0.16f, Offset(center.x - eo, center.y - r * 0.15f))
+        drawCircle(eye, r * 0.16f, Offset(center.x + eo, center.y - r * 0.15f))
         // HP bar.
         if (e.hp < e.maxHp) {
             val frac = (e.hp.toFloat() / e.maxHp).coerceIn(0f, 1f)
-            val bw = GameConfig.ENEMY_RADIUS * 2f * scale
-            val bx = sx(e.x) - bw / 2f
-            val by = sy(e.y) - r - 8f
-            drawRect(Color.Black.copy(alpha = 0.5f), Offset(bx, by), androidx.compose.ui.geometry.Size(bw, 4f))
-            drawRect(Color(0xFFFF8A80), Offset(bx, by), androidx.compose.ui.geometry.Size(bw * frac, 4f))
+            val bw = r * 2f
+            val bx = center.x - bw / 2f
+            val by = center.y - r - 8f
+            drawRect(Color.Black.copy(alpha = 0.5f), Offset(bx, by), size(bw, 4f))
+            drawRect(Color(0xFFFF8A80), Offset(bx, by), size(bw * frac, 4f))
         }
     }
 
-    // Bullets.
+    // Arrows.
     for (b in rs.bullets) {
-        drawCircle(
-            color = PlayerColors[b.ownerColorIndex % PlayerColors.size],
-            radius = 5f * scale + 2f,
-            center = Offset(sx(b.x), sy(b.y)),
-        )
+        val len = b.vx * b.vx + b.vy * b.vy
+        val inv = if (len > 0f) 1f / kotlin.math.sqrt(len) else 0f
+        val dx = b.vx * inv
+        val dy = b.vy * inv
+        val head = Offset(sx(b.x), sy(b.y))
+        val tail = Offset(head.x - dx * 22f, head.y - dy * 22f)
+        val color = PlayerColors[b.ownerColorIndex % PlayerColors.size]
+        drawLine(Color(0xFF6D4C41), tail, head, strokeWidth = 4f) // shaft
+        drawCircle(color, radius = 4f, center = head)               // arrowhead
     }
 
     // Players.
@@ -238,10 +280,10 @@ private fun DrawScope.drawArena(
         if (p.id == rs.localId) {
             drawCircle(Color.White, radius = r + 4f, center = center, style = Stroke(width = 3f))
         }
-        // Gun barrel.
+        // Drawn bow / aim direction.
         if (p.alive) {
             val end = Offset(center.x + cos(p.angle) * r * 1.6f, center.y + sin(p.angle) * r * 1.6f)
-            drawLine(Color.White, center, end, strokeWidth = 5f)
+            drawLine(Color(0xFFEFE0B0), center, end, strokeWidth = 5f)
         }
         // Name + HP bar.
         paint.color = android.graphics.Color.WHITE

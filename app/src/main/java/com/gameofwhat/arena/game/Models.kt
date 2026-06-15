@@ -53,6 +53,7 @@ data class RoomMeta(
     val hostId: String = "",
     val wave: Int = 0,
     val score: Int = 0,
+    val mapId: Int = 0,
 )
 
 /** A damage event reported by a client and applied by the host. */

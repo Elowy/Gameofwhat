@@ -33,6 +33,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _error = mutableStateOf<String?>(null)
     val error: State<String?> = _error
 
+    private val _selectedMapId = mutableStateOf(0)
+    val selectedMapId: State<Int> = _selectedMapId
+
     /** True when a real Firebase config (google-services.json) is present. */
     val firebaseAvailable: Boolean =
         FirebaseApp.getApps(getApplication()).isNotEmpty()
@@ -42,12 +45,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setPlayerName(name: String) { _playerName.value = name.take(14) }
 
+    fun setSelectedMap(id: Int) { _selectedMapId.value = id }
+
     fun clearError() { _error.value = null }
 
     /** Offline single-player practice — no Firebase required. */
     fun startPractice() {
         cleanup()
-        val n = LocalGameNetwork(_playerName.value.ifBlank { "You" })
+        val n = LocalGameNetwork(_playerName.value.ifBlank { "You" }, _selectedMapId.value)
         net = n
         _screen.value = Screen.Game(GameEngine(n))
     }
@@ -58,7 +63,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 cleanup()
-                val n = FirebaseGameNetwork.createRoom(_playerName.value)
+                val n = FirebaseGameNetwork.createRoom(_playerName.value, _selectedMapId.value)
                 net = n
                 observeMeta(n)
                 _screen.value = Screen.Lobby
@@ -91,6 +96,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 _busy.value = false
             }
         }
+    }
+
+    /** Host changes the arena for everyone in the lobby. */
+    fun hostSetMap(id: Int) {
+        val n = net ?: return
+        if (!n.isHost) return
+        _selectedMapId.value = id
+        n.publishMeta(n.meta.value.copy(mapId = id))
     }
 
     /** Host starts the match for everyone in the lobby. */

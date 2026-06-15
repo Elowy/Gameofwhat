@@ -18,6 +18,7 @@ data class RenderState(
     val phase: String = Phase.PLAYING,
     val wave: Int = 0,
     val score: Int = 0,
+    val mapId: Int = 0,
     val localHp: Int = GameConfig.PLAYER_MAX_HP,
     val localMaxHp: Int = GameConfig.PLAYER_MAX_HP,
     val localAlive: Boolean = true,
@@ -120,8 +121,9 @@ class GameEngine(private val net: GameNetwork) {
         var x = local.x + inX * GameConfig.PLAYER_SPEED * dt
         var y = local.y + inY * GameConfig.PLAYER_SPEED * dt
         val r = GameConfig.PLAYER_RADIUS
-        x = x.coerceIn(r, GameConfig.WORLD_SIZE - r)
-        y = y.coerceIn(r, GameConfig.WORLD_SIZE - r)
+        val resolved = resolveAgainstObstacles(x, y, r)
+        x = resolved.first.coerceIn(r, GameConfig.WORLD_SIZE - r)
+        y = resolved.second.coerceIn(r, GameConfig.WORLD_SIZE - r)
 
         // Aim at the nearest enemy in range, otherwise face the movement direction.
         val target = nearestEnemy(x, y, GameConfig.FIRE_RANGE)
@@ -168,9 +170,13 @@ class GameEngine(private val net: GameNetwork) {
                 b.y < 0f || b.y > GameConfig.WORLD_SIZE
             ) {
                 consumed = true
+            } else if (obstacles().any { dist(b.x, b.y, it.x, it.y) <= it.r }) {
+                // Arrow thuds into a pillar/tree/rock.
+                sparks.add(Spark(b.x, b.y, 0.18f, 0.18f))
+                consumed = true
             } else {
-                val hitR = GameConfig.ENEMY_RADIUS + 6f
                 for (e in enemies) {
+                    val hitR = GameConfig.enemyRadius(e.type) + 6f
                     if (e.hp > 0 && dist(b.x, b.y, e.x, e.y) <= hitR) {
                         net.reportHit(e.id, GameConfig.BULLET_DAMAGE)
                         sparks.add(Spark(b.x, b.y, 0.25f, 0.25f))
@@ -187,9 +193,10 @@ class GameEngine(private val net: GameNetwork) {
         if (!local.alive) return
         contactTimer -= dt
         if (contactTimer > 0f) return
-        val touchR = GameConfig.ENEMY_RADIUS + GameConfig.PLAYER_RADIUS
         val touching = enemiesForLogic().any {
-            it.hp > 0 && dist(it.x, it.y, local.x, local.y) <= touchR
+            it.hp > 0 &&
+                dist(it.x, it.y, local.x, local.y) <=
+                GameConfig.enemyRadius(it.type) + GameConfig.PLAYER_RADIUS
         }
         if (touching) {
             contactTimer = GameConfig.CONTACT_INTERVAL
@@ -246,6 +253,11 @@ class GameEngine(private val net: GameNetwork) {
                 e.x += dx / len * e.speed * dt
                 e.y += dy / len * e.speed * dt
             }
+            // Slide around obstacles and stay in bounds.
+            val er = GameConfig.enemyRadius(e.type)
+            val res = resolveAgainstObstacles(e.x, e.y, er)
+            e.x = res.first.coerceIn(er, GameConfig.WORLD_SIZE - er)
+            e.y = res.second.coerceIn(er, GameConfig.WORLD_SIZE - er)
         }
 
         // Wave management.
@@ -305,10 +317,35 @@ class GameEngine(private val net: GameNetwork) {
             phase = meta.phase,
             wave = if (isHost) wave else meta.wave,
             score = if (isHost) score else meta.score,
+            mapId = meta.mapId,
             localHp = local.hp,
             localMaxHp = local.maxHp,
             localAlive = local.alive,
         )
+    }
+
+    private fun obstacles(): List<Obstacle> = Maps.byId(net.meta.value.mapId).obstacles
+
+    /** Push a circle of [radius] out of any overlapping obstacle on the current map. */
+    private fun resolveAgainstObstacles(x: Float, y: Float, radius: Float): Pair<Float, Float> {
+        var nx = x
+        var ny = y
+        for (o in obstacles()) {
+            val dx = nx - o.x
+            val dy = ny - o.y
+            val d = dist(0f, 0f, dx, dy)
+            val min = radius + o.r
+            if (d < min) {
+                if (d > 0.001f) {
+                    val push = min - d
+                    nx += dx / d * push
+                    ny += dy / d * push
+                } else {
+                    nx = o.x + min
+                }
+            }
+        }
+        return nx to ny
     }
 
     private fun nearestEnemy(x: Float, y: Float, range: Float): EnemyState? =

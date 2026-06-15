@@ -1,9 +1,10 @@
-# Game of What — valós idejű coop aréna
+# Game of What — középkori coop aréna
 
 Android játék (Kotlin + Jetpack Compose), amiben **többen játszhattok együtt online**:
-fentről nézett túlélő-aréna, ahol közösen mozogtok, automatán lőtök, és hullámokban
-érkező szörnyek ellen harcoltok. A játékosok **szobakóddal** csatlakoznak egymáshoz
-Firebase Realtime Database-en keresztül.
+fentről nézett középkori túlélő-aréna, ahol lovagként közösen mozogtok, automatán
+**nyílvesszőkkel** lőtök, és hullámokban érkező **szörnyek** (koboldok, farkasok,
+ogrék) ellen harcoltok. A játékosok **szobakóddal** csatlakoznak egymáshoz Firebase
+Realtime Database-en keresztül, és **több pálya** közül választhattok.
 
 > **Offline próba:** A *Gyakorlás* mód Firebase beállítás **nélkül** is azonnal
 > játszható (egyjátékos), így rögtön ki tudod próbálni a játékmenetet.
@@ -11,10 +12,26 @@ Firebase Realtime Database-en keresztül.
 ## Játékmenet
 
 - **Mozgás:** bal alsó virtuális joystick.
-- **Lövés:** automata — a legközelebbi szörnyre céloz és tüzel.
+- **Lövés:** automata íjászat — a legközelebbi szörnyre céloz és nyilaz.
+- **Szörnyek:** kobold (alap), farkas (gyors), ogre (erős, lassú, sok életerő).
+- **Akadályok:** a pályán oszlopok / fák / ládák / sziklák blokkolják a mozgást és a
+  nyilakat — bújj fedezékbe!
 - **Cél:** közösen túlélni minél több hullámot. Érintkezésnél sebződsz; ha az életerőd
   elfogy, kiesel. A meccs akkor ér véget, ha **minden játékos** kiesett.
 - **Coop:** közös pontszám és hullámszámláló mindenkinek.
+
+## Pályák
+
+A host (online) vagy te (offline) a kezdés előtt választhattok pályát:
+
+| Pálya | Hangulat |
+|-------|----------|
+| **Várudvar** | kőpadló, négy sarokoszlop |
+| **Sötét erdő** | füves talaj, szétszórt fák |
+| **Tömlöc** | sötét kő, blokkokból álló sávok |
+| **Lávabarlang** | izzó sziklák, lávaszín kiemelések |
+
+Új pályát a `Maps.kt`-ben tudsz hozzáadni (név, színek, akadályok listája).
 
 ## Technikai felépítés
 
@@ -33,7 +50,7 @@ módban teljesen azonos.
 
 ```
 rooms/{KÓD}/
-  meta            -> { phase, hostId, wave, score }
+  meta            -> { phase, hostId, wave, score, mapId }
   players/{id}    -> { id, name, x, y, angle, hp, maxHp, alive, colorIndex, score }
   enemies/{id}    -> { id, x, y, hp, maxHp, type }   # a host írja
   hits/{pushId}   -> { enemyId, damage }             # kliensek pusholják, a host feldolgozza

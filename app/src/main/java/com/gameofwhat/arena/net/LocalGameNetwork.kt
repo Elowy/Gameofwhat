@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * host and there are no remote players, but the full host simulation runs, so the game
  * is completely playable without any Firebase setup.
  */
-class LocalGameNetwork(playerName: String) : GameNetwork {
+class LocalGameNetwork(playerName: String, mapId: Int = 0) : GameNetwork {
 
     override val roomCode: String = "SOLO"
     override val localId: String = "local-player"
@@ -24,7 +24,7 @@ class LocalGameNetwork(playerName: String) : GameNetwork {
         mapOf(localId to PlayerState(id = localId, name = playerName, colorIndex = 0))
     )
     private val _enemies = MutableStateFlow<List<EnemyState>>(emptyList())
-    private val _meta = MutableStateFlow(RoomMeta(phase = Phase.PLAYING, hostId = localId))
+    private val _meta = MutableStateFlow(RoomMeta(phase = Phase.PLAYING, hostId = localId, mapId = mapId))
 
     override val players: StateFlow<Map<String, PlayerState>> = _players.asStateFlow()
     override val enemies: StateFlow<List<EnemyState>> = _enemies.asStateFlow()

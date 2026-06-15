@@ -40,6 +40,7 @@ fun MenuScreen(vm: AppViewModel) {
     val name by vm.playerName
     val busy by vm.busy
     val error by vm.error
+    val selectedMap by vm.selectedMapId
     var code by remember { mutableStateOf("") }
 
     Column(
@@ -53,7 +54,7 @@ fun MenuScreen(vm: AppViewModel) {
         Spacer(Modifier.height(24.dp))
         Text("GAME OF WHAT", fontSize = 34.sp, fontWeight = FontWeight.Black, color = Primary)
         Text(
-            "Valós idejű coop aréna",
+            "Középkori coop aréna",
             fontSize = 15.sp,
             color = Primary.copy(alpha = 0.7f),
         )
@@ -64,6 +65,19 @@ fun MenuScreen(vm: AppViewModel) {
             onValueChange = vm::setPlayerName,
             label = { Text("Neved") },
             singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Text(
+            "PÁLYA",
+            fontWeight = FontWeight.Bold,
+            color = Primary.copy(alpha = 0.7f),
+            modifier = Modifier.align(Alignment.Start),
+        )
+        MapPicker(
+            selectedId = selectedMap,
+            enabled = !busy,
+            onSelect = vm::setSelectedMap,
             modifier = Modifier.fillMaxWidth(),
         )
 

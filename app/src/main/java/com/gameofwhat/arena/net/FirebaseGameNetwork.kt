@@ -152,7 +152,7 @@ class FirebaseGameNetwork private constructor(
         private fun randomCode(): String =
             (1..4).map { CODE_CHARS[Random.nextInt(CODE_CHARS.length)] }.joinToString("")
 
-        suspend fun createRoom(name: String): FirebaseGameNetwork {
+        suspend fun createRoom(name: String, mapId: Int): FirebaseGameNetwork {
             val root = db().getReference("rooms")
             // Find an unused 4-char code.
             var code = randomCode()
@@ -164,7 +164,7 @@ class FirebaseGameNetwork private constructor(
             val localId = UUID.randomUUID().toString()
             val roomRef = root.child(code)
             roomRef.child("meta").setValue(
-                metaToMap(RoomMeta(phase = Phase.LOBBY, hostId = localId))
+                metaToMap(RoomMeta(phase = Phase.LOBBY, hostId = localId, mapId = mapId))
             ).await()
             val net = FirebaseGameNetwork(code, localId, isHost = true, roomRef)
             net.attachListeners()
@@ -224,6 +224,7 @@ class FirebaseGameNetwork private constructor(
             "hostId" to m.hostId,
             "wave" to m.wave,
             "score" to m.score,
+            "mapId" to m.mapId,
         )
 
         private fun parsePlayer(s: DataSnapshot): PlayerState? {
@@ -259,6 +260,7 @@ class FirebaseGameNetwork private constructor(
             hostId = s.str("hostId", ""),
             wave = s.int("wave", 0),
             score = s.int("score", 0),
+            mapId = s.int("mapId", 0),
         )
 
         private fun DataSnapshot.float(key: String, def: Float = 0f): Float =
